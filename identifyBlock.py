@@ -29,5 +29,3 @@ def listBundles(blockMin: int, blockMax: int = 0) -> list:
         txs[i['blockNumber']-blockMin].append(i['transactions'])
     return txs
 
-listBundles(19567000, 19567334)
-
