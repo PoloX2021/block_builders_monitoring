@@ -39,7 +39,7 @@ an array of answer per simulation,
 'exitReason'
 'returnData'
 """
-
+"""
 input_file_path = "c:/Users/Paul CoW/Documents/MEVBlocker/Agnostic_relay/block19511148.txt"
 with open(input_file_path, "r") as input_file:
     i=0
@@ -48,4 +48,4 @@ with open(input_file_path, "r") as input_file:
         simulate_block(json.loads(a[7])['ExecutionPayload'])
         print(i)
         i+=1
-    
+"""
