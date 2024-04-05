@@ -1,72 +1,52 @@
-from dataclasses import asdict, dataclass
-from pprint import pprint
-from typing import Optional
+"""
+Il y 3 types de transaction : https://eips.ethereum.org/EIPS/eip-1559#specification
+ - legacy
+ - EIP1559 : payload précédé de 0x02
+ - EIP2930 : payload précédé de 0x01
+"""
 
-import rlp
-from eth_typing import HexStr
-from eth_utils import keccak, to_bytes
-from rlp.sedes import Binary, big_endian_int, binary
-from web3 import Web3
+import subprocess
+import json
+from hash import keccak256
 from web3.auto import w3
-from eth.vm.forks.arrow_glacier.transactions import ArrowGlacierTransactionBuilder as TransactionBuilder
-from eth_utils import (
-  encode_hex,
-  to_bytes,
-)
-class Transaction(rlp.Serializable):
-    fields = [
-        ("nonce", big_endian_int),
-        ("gas_price", big_endian_int),
-        ("gas", big_endian_int),
-        ("to", Binary.fixed_length(20, allow_empty=True)),
-        ("value", big_endian_int),
-        ("data", binary),
-        ("v", big_endian_int),
-        ("r", big_endian_int),
-        ("s", big_endian_int),
-    ]
+import tempfile
+import os
 
-
-@dataclass
-class DecodedTx:
-    hash_tx: str
-    from_: str
-    to: Optional[str]
-    nonce: int
-    gas: int
-    gas_price: int
-    value: int
-    data: str
-    chain_id: int
-    r: str
-    s: str
-    v: int
-
-def hex_to_bytes(data: str) -> bytes:
-    return to_bytes(hexstr=HexStr(data))
-
+Transaction1559Index = ['chain_id', 'nonce', 'max_priority_fee_per_gas','max_fee_per_gas', 'gas', 'to', 'value', 'data', 'access_list', 'v', 'r', 's']
+Transactions2930Index = ['chain_id', 'nonce', 'max_priority_fee_per_gas', 'max_fee_per_gas', 'gas', 'to', 'data', 'access_list', 'v', 'r', 's']
+TransactionsIndex = ['nonce', 'gas_price', 'gas', 'to', 'value', 'data', 'v', 'r', 's']
 
 def decode_raw_tx(raw_tx: str):
-    if raw_tx[2:4] =='f8':
-        tx = rlp.decode(hex_to_bytes(raw_tx), Transaction)
-        hash_tx = Web3.to_hex(keccak(hex_to_bytes(raw_tx)))
-        from_ = w3.eth.account.recover_transaction(raw_tx)
-        to = w3.to_checksum_address(tx.to) if tx.to else None
-        data = w3.to_hex(tx.data)
-        r = hex(tx.r)
-        s = hex(tx.s)
-        chain_id = (tx.v - 35) // 2 if tx.v % 2 else (tx.v - 36) // 2
-        return DecodedTx(hash_tx, from_, to, tx.nonce, tx.gas, tx.gas_price, tx.value, data, chain_id, r, s, tx.v)
-    
-    # 2) convert the hex string to bytes:
-    signed_tx_as_bytes = to_bytes(hexstr=raw_tx)
+    if raw_tx[:2]=='0x':
+        raw_tx = raw_tx[2:]
 
-    # 3) deserialize the transaction using the latest transaction builder:
-    decoded_tx = TransactionBuilder().decode(signed_tx_as_bytes)
-    sender = encode_hex(decoded_tx.sender)
-    decoded_tx = decoded_tx.__dict__['_inner'].as_dict()
-    decoded_tx['from'] = w3.to_checksum_address(sender)
-    decoded_tx['to'] = w3.to_checksum_address(decoded_tx['to']) if decoded_tx['to'] else None
-    decoded_tx['data'] = decoded_tx['data'].hex()
-    return decoded_tx
+    command = f'"C:\\Users\\Paul CoW\\.cargo\\bin\\cast.exe" from-rlp'
+    
+    if raw_tx[:2] =='02' or raw_tx[:2] =='01':
+        input = raw_tx[2:].encode()
+    else : 
+        input = raw_tx.encode()
+
+    # Exécuter la commande
+    process = subprocess.Popen(command, shell=True, stdin=subprocess.PIPE, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+    # Obtenir la sortie standard et les erreurs
+    stdout, stderr = process.communicate(input=input)
+
+    # Afficher la sortie standard
+    if stdout:
+        tx = json.loads(stdout.decode())
+        if raw_tx[:2]=='02':
+             tx = dict(zip(Transaction1559Index, tx))
+        elif raw_tx[:2]=='01':
+            tx = dict(zip(Transactions2930Index, tx))
+        else:
+            tx = dict(zip(TransactionsIndex, tx))
+        tx["hash"] = keccak256(raw_tx)
+        tx['from_'] = w3.eth.account.recover_transaction(raw_tx)
+        return tx
+
+    # Afficher les erreurs
+    if stderr:
+        print("Error:")
+        print(stderr.decode())
 
