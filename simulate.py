@@ -11,6 +11,8 @@ def simulate_block(block, decode = True):
     for i in block['transactions']:
         if decode :
             tx = decode_raw_tx(i)
+        else:
+            tx = i
         data.append({
             "chainId": 1,
             "from": tx['from'],
