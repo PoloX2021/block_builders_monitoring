@@ -22,7 +22,12 @@ def simulate_block(block):
         })
 
     response = requests.post(url, headers = headers, json=data).json()
-    return response
+    print(response)
+    try :
+        code = response['code']
+        return None
+    except:
+        return response
 
 """ the answer is built as follows :
 an array of answer per simulation,
