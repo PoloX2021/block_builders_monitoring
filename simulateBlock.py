@@ -22,7 +22,6 @@ def simulate_block(block):
         })
 
     response = requests.post(url, headers = headers, json=data).json()
-    print(response)
     try :
         code = response['code']
         return None
